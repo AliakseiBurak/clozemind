@@ -1,0 +1,71 @@
+{% extends "base.html" %}
+{% block title %}Interview Learner — {{ 'Exam Results' if exam_mode else 'Session Summary' }}{% endblock %}
+{% block content %}
+<h1>{{ 'Exam Results' if exam_mode else 'Session Summary' }}</h1>
+
+<div class="card no-print">
+    <div class="summary-grid">
+        <div class="summary-item">
+            <span class="summary-value pass">{{ passed_count }}</span>
+            <span class="summary-label">Passed</span>
+        </div>
+        {% if elapsed_seconds is not none %}
+        <div class="summary-item">
+            <span class="summary-value">{{ (elapsed_seconds // 60)|int }}m {{ (elapsed_seconds % 60)|int }}s</span>
+            <span class="summary-label">Time</span>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+{% if table_rows and show_table %}
+<div class="card">
+    <h2>Results per Question</h2>
+    <table class="summary-table">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Question</th>
+                <th>First Score</th>
+                <th>First Time</th>
+                <th>Last Score</th>
+                <th>Last Time</th>
+                <th>Passed</th>
+                <th>Att.</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for q in table_rows %}
+            <tr>
+                <td>Q{{ q.number }}</td>
+                <td>{{ q.question }}</td>
+                <td>{{ q.first_score_fmt }}</td>
+                <td>{{ q.first_time_fmt }}</td>
+                <td class="{{ 'pass' if q.passed else 'fail' }}">{{ q.last_score_fmt }}</td>
+                <td>{{ q.last_time_fmt }}</td>
+                <td class="{{ 'pass' if q.passed else 'fail' }}">{{ 'Yes' if q.passed else 'No' }}</td>
+                <td class="attempts-cell">{{ q.attempts }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% if has_any_not_passed %}
+<div class="card no-print">
+    <form method="post" action="/review">
+        <button type="submit" class="btn-primary">Review Missed Questions</button>
+    </form>
+</div>
+{% else %}
+<div class="card no-print">
+    <p class="all-passed">All questions passed! Great job.</p>
+</div>
+{% endif %}
+{% endif %}
+
+<div class="bottom-row no-print">
+    <button onclick="window.print()" class="btn-secondary" style="margin-right:8px">Save PDF</button>
+    <a href="/" class="btn-primary">Back to Themes</a>
+</div>
+{% endblock %}

@@ -1,0 +1,15 @@
+# Local data (SQLite progress database — do not commit)
+data/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Virtual environment
+.venv/
+venv/
+
+# IDE
+.vscode/
+.idea/
