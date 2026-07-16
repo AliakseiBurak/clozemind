@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import contextlib
 import json
+import os
 import time
 import uuid
 from pathlib import Path
@@ -116,7 +117,7 @@ async def lifespan(_app: FastAPI):
 app = FastAPI(title="Interview Learner", lifespan=lifespan)
 app.add_middleware(
     SessionMiddleware,
-    secret_key="interview-learner-dev-secret-change-in-prod",
+    secret_key=os.environ.get("SESSION_SECRET", "interview-learner-dev-secret-change-in-prod"),
     max_age=86400,
 )
 app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
