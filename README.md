@@ -16,6 +16,10 @@ python main.py
 pip install -r requirements.txt
 python web_app.py
 # → http://localhost:8000
+
+# Local dev
+pip install -r requirements.txt
+uvicorn web_app:app --host localhost --port 8000
 ```
 
 ## Learning Modes
