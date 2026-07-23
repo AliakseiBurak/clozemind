@@ -17,9 +17,9 @@ from interview_learner.progress import ProgressStore
 
 
 class LearningService:
-    def __init__(self, settings: AppSettings) -> None:
+    def __init__(self, settings: AppSettings, progress_store=None) -> None:
         self.settings = settings
-        self.progress = ProgressStore(PROGRESS_DB)
+        self.progress = progress_store if progress_store is not None else ProgressStore(PROGRESS_DB)
         self.ollama: OllamaClient | None = None
         self._cloze: ClozeGenerator = RuleBasedClozeGenerator()
         self._grader: Grader = ExactGrader(settings.pass_threshold)

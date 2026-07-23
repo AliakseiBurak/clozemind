@@ -69,3 +69,16 @@
     <a href="/" class="btn-primary">Back to Themes</a>
 </div>
 {% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+    var progressJson = '{{ progress_json|e }}';
+    if (progressJson) {
+        try {
+            localStorage.setItem('interview_learner_progress', progressJson);
+        } catch(e) {}
+    }
+})();
+</script>
+{% endblock %}

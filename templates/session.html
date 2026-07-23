@@ -149,9 +149,31 @@
 {% block scripts %}
 <script>
 (function() {
-    var STORAGE_KEY = 'interview_learner_gaps';
+    var PROGRESS_KEY = 'interview_learner_progress';
+    var GAPS_KEY = 'interview_learner_gaps';
 
-    var saved = sessionStorage.getItem(STORAGE_KEY);
+    // Save progress from server to localStorage
+    var progressJson = '{{ progress_json|e }}';
+    if (progressJson) {
+        try {
+            localStorage.setItem(PROGRESS_KEY, progressJson);
+        } catch(e) {}
+    }
+
+    function getProgress() {
+        try { return JSON.parse(localStorage.getItem(PROGRESS_KEY) || '{}'); } catch(e) { return {}; }
+    }
+
+    function injectProgress(form) {
+        var inp = document.createElement('input');
+        inp.type = 'hidden';
+        inp.name = 'progress_data';
+        inp.value = JSON.stringify(getProgress());
+        form.appendChild(inp);
+    }
+
+    // Preserve gap inputs across hint POSTs
+    var saved = sessionStorage.getItem(GAPS_KEY);
     if (saved) {
         try {
             var values = JSON.parse(saved);
@@ -170,20 +192,32 @@
             for (var i = 0; i < inputs.length; i++) {
                 data[inputs[i].name] = inputs[i].value;
             }
-            sessionStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+            sessionStorage.setItem(GAPS_KEY, JSON.stringify(data));
+            injectProgress(this);
         });
     }
 
     var submitForm = document.getElementById('submit-form');
     if (submitForm) {
         submitForm.addEventListener('submit', function() {
-            sessionStorage.removeItem(STORAGE_KEY);
+            sessionStorage.removeItem(GAPS_KEY);
+            injectProgress(this);
         });
     }
+
     var navForms = document.querySelectorAll('form[action="/next"], form[action="/mark-read"]');
     for (var i = 0; i < navForms.length; i++) {
         navForms[i].addEventListener('submit', function() {
-            sessionStorage.removeItem(STORAGE_KEY);
+            sessionStorage.removeItem(GAPS_KEY);
+            injectProgress(this);
+        });
+    }
+
+    // Inject progress into exam form too
+    var examForm = document.getElementById('exam-form');
+    if (examForm) {
+        examForm.addEventListener('submit', function() {
+            injectProgress(this);
         });
     }
 })();

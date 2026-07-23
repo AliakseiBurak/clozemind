@@ -89,6 +89,20 @@
 </form>
 
 <script>
+var PROGRESS_KEY = 'interview_learner_progress';
+
+function getProgress() {
+    try { return JSON.parse(localStorage.getItem(PROGRESS_KEY) || '{}'); } catch(e) { return {}; }
+}
+
+function injectProgress(form) {
+    var inp = document.createElement('input');
+    inp.type = 'hidden';
+    inp.name = 'progress_data';
+    inp.value = JSON.stringify(getProgress());
+    form.appendChild(inp);
+}
+
 function toggleAll(checked) {
     document.querySelectorAll('.theme-checkbox').forEach(cb => cb.checked = checked);
     updateButtons();
@@ -109,21 +123,27 @@ function updateButtons() {
     });
 }
 function startLearn() {
+    var form = document.getElementById('main-form');
     document.getElementById('visibility-input').value = '1.0';
     document.getElementById('exam-mode-input').value = 'false';
-    document.getElementById('main-form').submit();
+    injectProgress(form);
+    form.submit();
 }
 function startFill() {
-    const gaps = parseInt(document.getElementById('gaps').value) || 50;
-    const vis = Math.max(0, 1 - gaps / 100);
+    var form = document.getElementById('main-form');
+    var gaps = parseInt(document.getElementById('gaps').value) || 50;
+    var vis = Math.max(0, 1 - gaps / 100);
     document.getElementById('visibility-input').value = vis;
     document.getElementById('exam-mode-input').value = 'false';
-    document.getElementById('main-form').submit();
+    injectProgress(form);
+    form.submit();
 }
 function startExam() {
     {% if ollama_available %}
+    var form = document.getElementById('main-form');
     document.getElementById('exam-mode-input').value = 'true';
-    document.getElementById('main-form').submit();
+    injectProgress(form);
+    form.submit();
     {% endif %}
 }
 document.querySelectorAll('.theme-checkbox').forEach(cb => cb.addEventListener('change', updateButtons));

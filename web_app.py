@@ -18,6 +18,7 @@ from starlette.middleware.sessions import SessionMiddleware
 from interview_learner.cloze import RuleBasedClozeGenerator
 from interview_learner.config import AppSettings
 from interview_learner.grading import ExactGrader
+from interview_learner.memory_progress import MemoryProgressStore
 from interview_learner.models import (
     BLANK_CHAR,
     ClozeState,
@@ -141,6 +142,7 @@ def _get_session(request: Request) -> dict[str, Any]:
         "submitted": False,
         "grade": None,
         "exam_mode": False,
+        "progress_data": {},
     }
     sessions[sid] = data
     return data
@@ -271,6 +273,7 @@ def start_session(
     exam_mode: bool = Form(False),
     visibility: float = Form(1.0),
     timer_enabled: bool = Form(False),
+    progress_data: str = Form(default="{}"),
 ) -> RedirectResponse:
     if not selected_themes:
         return RedirectResponse(url="/", status_code=303)
@@ -285,7 +288,8 @@ def start_session(
     if ollama_model:
         settings.ollama_model = ollama_model
 
-    local_service = LearningService(settings)
+    mem_store = MemoryProgressStore.from_dict(json.loads(progress_data))
+    local_service = LearningService(settings, progress_store=mem_store)
     picked = local_service.prepare_session(questions, count)
 
     sd = _get_session(request)
@@ -301,6 +305,7 @@ def start_session(
     sd["timer_enabled"] = timer_enabled or (not exam_mode and visibility >= 1.0)
     sd["start_time"] = time.time() if timer_enabled else None
     sd["question_start_time"] = time.time() if timer_enabled else None
+    sd["progress_data"] = mem_store.to_dict()
 
     return RedirectResponse(url="/session", status_code=303)
 
@@ -325,6 +330,8 @@ def session_page(request: Request) -> HTMLResponse:
     cs: ClozeState | None = sd.get("cloze")
     grade = sd.get("grade")
 
+    progress_json = json.dumps(sd.get("progress_data", {}))
+
     html = _render(
         "session.html",
         question=q,
@@ -335,6 +342,7 @@ def session_page(request: Request) -> HTMLResponse:
         grade=grade,
         exam_mode=exam_mode,
         total_questions=len(sd["questions"]),
+        progress_json=progress_json,
     )
     return HTMLResponse(content=html)
 
@@ -356,6 +364,10 @@ async def submit_answer(request: Request) -> RedirectResponse:
     local_service = LearningService(settings)
 
     form = await request.form()
+
+    progress_data_str = form.get("progress_data", "{}")
+    mem_store = MemoryProgressStore.from_dict(json.loads(progress_data_str))
+    local_service = LearningService(settings, progress_store=mem_store)
 
     # ----- Exam mode (textarea full answer graded by Ollama) -----
     if exam_mode:
@@ -383,6 +395,7 @@ async def submit_answer(request: Request) -> RedirectResponse:
         )
         sd["submitted"] = True
         sd["grade"] = exam_grade
+        sd["progress_data"] = mem_store.to_dict()
         return RedirectResponse(url="/session", status_code=303)
 
     # ----- Learning mode: cloze (gap inputs) -----
@@ -427,6 +440,7 @@ async def submit_answer(request: Request) -> RedirectResponse:
             for g in grade.gap_grades
         ],
     }
+    sd["progress_data"] = mem_store.to_dict()
 
     return RedirectResponse(url="/session", status_code=303)
 
@@ -480,13 +494,16 @@ def next_question(request: Request) -> RedirectResponse:
 
 
 @app.post("/mark-read")
-def mark_read(request: Request) -> RedirectResponse:
+async def mark_read(request: Request) -> RedirectResponse:
     sd = _get_session(request)
     idx = sd["index"]
     questions = sd["questions"]
     if idx < len(questions):
         q = questions[idx]
-        local_service = LearningService(settings)
+        form = await request.form()
+        progress_data_str = form.get("progress_data", "{}")
+        mem_store = MemoryProgressStore.from_dict(json.loads(progress_data_str))
+        local_service = LearningService(settings, progress_store=mem_store)
         cs: ClozeState | None = sd.get("cloze")
         new_stage = local_service.complete_question(q, grade=None)
         attempt = sum(1 for r in sd["results"] if r.question.id == q.id) + 1
@@ -505,6 +522,7 @@ def mark_read(request: Request) -> RedirectResponse:
                 time_spent=time_spent,
             )
         )
+        sd["progress_data"] = mem_store.to_dict()
     sd["index"] += 1
     sd["cloze"] = None
     sd["submitted"] = False
@@ -575,6 +593,8 @@ def summary_page(request: Request) -> HTMLResponse:
         row["last_time_fmt"] = _fmt_time(row["last_time_spent"])
     has_any_not_passed = any(not row["passed"] for row in table_rows)
 
+    progress_json = json.dumps(sd.get("progress_data", {}))
+
     html = _render(
         "summary.html",
         total_questions=len(questions),
@@ -587,6 +607,7 @@ def summary_page(request: Request) -> HTMLResponse:
         exam_mode=exam_mode,
         elapsed_seconds=elapsed_seconds,
         show_table=sd.get("exam_mode") or sd.get("fill_mode"),
+        progress_json=progress_json,
     )
     return HTMLResponse(content=html)
 
