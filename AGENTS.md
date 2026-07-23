@@ -39,7 +39,7 @@ No test, lint, typecheck, or CI pipeline exists.
 - Theme name from filename: `en_q&a_db_internals.md` → `"db_internals"`; display overrides in `parser._THEME_LABEL_OVERRIDES`
 - `en_q&a_general.md` has one malformed entry (`## Layers?` with no answer) — silently skipped
 - Grading: ExactGrader uses LCS gate (>45%) + Levenshtein; order-independent matching per gap
-- Hints use round-robin reveal pattern in `ClozeState.reveal_hint()`
+- Hints reveal ~10% of remaining hidden chars per press; priority goes to first 3 positions of each word, then by word size descending
 - Review Missed Questions preserves all attempt history
 - New question format: `### Q1: question / **Answer:** answer / ---` (parser auto-detects)
 

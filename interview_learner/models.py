@@ -81,40 +81,40 @@ class ClozeState:
         if not gaps:
             return None
 
-        hint_num = self._hint_count
         self._hint_count += 1
 
-        targets: list[tuple[int, int]] = []
-        if hint_num == 0:
-            targets = [(0, 2), (1, 1)]
-        else:
-            targets = [(hint_num - 1, 1), (hint_num, 2), (hint_num + 1, 1)]
+        unfinished = [(i, g) for i, g in enumerate(gaps)
+                      if self.revealed_counts.get(i, 0) < len(g.hidden_text)]
+        if not unfinished:
+            return None
 
-        any_applied = False
-        for gap_idx, add_count in targets:
-            if 0 <= gap_idx < len(gaps):
-                gap = gaps[gap_idx]
-                current = self.revealed_counts.get(gap_idx, 0)
-                if current < len(gap.hidden_text):
-                    new_count = min(current + add_count, len(gap.hidden_text))
-                    self.revealed_counts[gap_idx] = new_count
-                    any_applied = True
-                    if new_count >= len(gap.hidden_text):
-                        self.hinted_indices.add(gap_idx)
+        total_hidden = sum(len(g.hidden_text) - self.revealed_counts.get(i, 0)
+                           for i, g in unfinished)
+        target = max(1, round(total_hidden * 0.1))
 
-        # If no targets applied (window beyond end), fill first
-        # unrevealed gap 1 character at a time
-        if not any_applied:
-            for i, g in enumerate(gaps):
-                current = self.revealed_counts.get(i, 0)
-                if current < len(g.hidden_text):
-                    new_count = current + 1
-                    self.revealed_counts[i] = new_count
-                    if new_count >= len(g.hidden_text):
-                        self.hinted_indices.add(i)
-                    break
+        # Distribute reveals: first spread first-3-position reveals across
+        # all words, then give extras to larger words.
+        result_idx = unfinished[0][0]
+        revealed = 0
 
-        return targets[0][0] if targets else None
+        def _revealed_in_first3(i: int) -> int:
+            return min(3, self.revealed_counts.get(i, 0))
+
+        for i, g in sorted(
+            unfinished,
+            key=lambda x: (_revealed_in_first3(x[0]), -len(x[1].hidden_text)),
+        ):
+            if revealed >= target:
+                break
+            current = self.revealed_counts.get(i, 0)
+            if current < len(g.hidden_text):
+                self.revealed_counts[i] = current + 1
+                revealed += 1
+                result_idx = i
+                if current + 1 >= len(g.hidden_text):
+                    self.hinted_indices.add(i)
+
+        return result_idx
 
 
 @dataclass
